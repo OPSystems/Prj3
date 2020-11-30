@@ -12,7 +12,7 @@
 #define PORT 8080                                                       // define local port
 
 
-std::vector<std::vector<std::string>> disk;
+std::vector<std::vector<std::vector<char>>> disk;
 int microSeconds;
 
 
@@ -61,7 +61,7 @@ void *connection(void *newS)
         long reqSector = std::stoi(std::string(cmdAr[2]));
         std::string outputData = "";
         if (reqCylinder > 0 && reqSector > 0 && reqCylinder <= cylinderSize && reqSector <= sectorSize) {
-            outputData = outputData + std::to_string(1) + disk[reqCylinder - 1][reqSector - 1];
+            outputData = outputData + std::to_string(1) + std::string(disk[reqCylinder - 1][reqSector - 1].begin(), disk[reqCylinder - 1][reqSector - 1].end());
         }
         else {
             outputData = std::to_string(0);
@@ -78,11 +78,17 @@ void *connection(void *newS)
         
         int code;
 
-        if (dataLength <= 128 && dataLength > 0 && reqCylinder > 0 && reqSector > 0 && reqCylinder <= cylinderSize && reqSector <= sectorSize) {
-            disk[reqCylinder - 1][reqSector - 1] = data;
+        if (dataLength <= 128 && dataLength > 0 && reqCylinder > 0 && reqSector > 0 && reqCylinder <= cylinderSize && reqSector <= sectorSize &&  (dataLength == data.size())) {
+            for (int i = 0; i < 128; i++) {
+                disk[reqCylinder - 1][reqSector - 1][i] = '\0';
+            }
+            for (int i = 0; i < dataLength; i++) {
+                disk[reqCylinder - 1][reqSector - 1][i] = data[i];
+            }
             code = 1;
         }
         else {
+            printf("%ld", sizeof(data)/sizeof(data[0]));
             code = 0;
         }
         
@@ -101,7 +107,7 @@ int main(int argc, char* argv[])
 {
 
     if (argc != 4) {
-        printf("Server requires 2 parameters: (1) no. of cylinders (2) no. of sectors (3) track-to-track time in microseconds");
+        printf("Server requires 3 parameters: (1) no. of cylinders (2) no. of sectors (3) track-to-track time in microseconds");
         exit(EXIT_FAILURE);
     }
 
@@ -111,9 +117,13 @@ int main(int argc, char* argv[])
 
     //populate disk with empty strings
     for (int i = 0; i < cylinders; i++) {
-        std::vector<std::string> sectorArr;
+        std::vector<std::vector<char>> sectorArr;
         for (int j = 0; j < sectors; j++) {
-            sectorArr.push_back("");
+            std::vector<char> charArr;
+            for(int k = 0; k < 128; k++) {
+                charArr.push_back('\0');
+            }
+            sectorArr.push_back(charArr);
         }
         disk.push_back(sectorArr);
     }
