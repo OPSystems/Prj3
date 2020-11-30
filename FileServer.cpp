@@ -29,13 +29,6 @@ struct file {
 };
 
 
-struct directory {
-    std:: string name;
-    std::vector<directory> children;
-    std::vector<file> files;
-};
-
-
 std::vector<file> FAT;
 
 int microSeconds;
