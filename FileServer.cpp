@@ -214,6 +214,8 @@ void *connection(void *newS)
                             index++;
                         }
                     }
+
+                    FAT[fileNo].length = dataLength;
                     
                     int code = 0;
                     send(newSock, &code , sizeof(int), 0);   
@@ -241,6 +243,8 @@ void *connection(void *newS)
                             index++;
                         }
                     }
+
+                    FAT[fileNo].length = dataLength;
 
                     int code = 0;
                     send(newSock, &code , sizeof(int), 0);   
@@ -307,6 +311,8 @@ void *connection(void *newS)
                                 index++;
                             }
                         }
+
+                        FAT[fileNo].length = dataLength;
 
                         int code = 0;
                         send(newSock, &code , sizeof(int), 0);   
