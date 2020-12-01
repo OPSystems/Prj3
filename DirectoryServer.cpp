@@ -56,6 +56,21 @@ void removeDirectory(directory *dir) {
     }
 }
 
+
+std::string getPath(directory *dir) {
+    
+    directory *currentDir = dir;
+    std::string path = dir->name;
+    
+    while (currentDir->parent != NULL) {
+        path = currentDir->parent->name + "/" + path;
+        currentDir = currentDir->parent;
+    }
+
+    return path;
+}
+
+
 struct directory *root = new directory("root");
 
 int microSeconds;
@@ -515,8 +530,8 @@ void *connection(void *newS)
         }
     }
     else if (strcmp(cmd, "pwd") == 0) {
-        std::string dirName = root->name;
-        send(newSock, dirName.c_str() , 1024, 0);   
+        std::string dirPath = getPath(root);
+        send(newSock, dirPath.c_str() , 1024, 0);   
         close(newSock);
     }
     else if (strcmp(cmd, "mkdir") == 0) {
