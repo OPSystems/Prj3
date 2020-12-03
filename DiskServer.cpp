@@ -78,45 +78,58 @@ void *connection(void *newS)
     }
     argv[cmdLen] = NULL;                                                // final index will be set to NULL
 
-    if (strcmp(cmd, "I") == 0) {
-        sendStr = std::to_string(cylinders) + " cylinders " + std::to_string(sectors) + " sectors";
+    if (strcmp(cmd, "I") == 0) {                                        // I is the information command
+        if (cmdLen != 1) {
+            sendStr = "Not a command";                                  // more than 1 argument is illegal
+        }
+        else {                                                          // otherwise save info to string
+            sendStr = std::to_string(cylinders) + " cylinders " + std::to_string(sectors) + " sectors";
+        }
         strcpy(wbuf, sendStr.c_str());                                  // copy string to write buffer
         send(newSock, wbuf, strlen(wbuf), 0);                           // send the buffer to the client
         close(newSock);                                                 // close socket
     }
-    else if (strcmp(cmd, "R") == 0) {
-        usleep(microS);                                                 // simulate read time
-        c = std::stoi(std::string(cmdAr[1]));                           // get cylinder from user
-        s = std::stoi(std::string(cmdAr[2]));                           // sector from user
-        blockIndex = ((c-1) * s) + s;                                   // get block number
-
-        if (c < cylinders && c >= 0 && s < sectors && s >= 0) {
-            sendStr = "1 " + blocks[blockIndex].getData();              // if legal, create string with Block data
+    else if (strcmp(cmd, "R") == 0) {                                   // R is the read command
+        if (cmdLen != 3) {
+            sendStr = "Not a command";                                  // more or less than 3 arguments is illegal
         }
         else {
-            sendStr = "0";                                              // of illegal create illegal (0) string 
-        } 
+            usleep(microS);                                             // simulate read time
+            c = std::stoi(std::string(cmdAr[1]));                       // get cylinder from user
+            s = std::stoi(std::string(cmdAr[2]));                       // sector from user
+            blockIndex = ((c-1) * sectors) + s;                         // get block number
 
+            if (c < cylinders && c >= 0 && s < sectors && s >= 0) {
+                sendStr = "1 " + blocks[blockIndex].getData();          // if legal, create string with Block data
+            }
+            else {
+                sendStr = "0";                                          // if illegal create illegal (0) string 
+            } 
+        }
         strcpy(wbuf, sendStr.c_str());                                  // copy string to write buffer
         send(newSock, wbuf, strlen(wbuf), 0);                           // send the buffer to the client
         close(newSock);                                                 // close socket
     }
     else if (strcmp(cmd, "W") == 0) {
-        usleep(microS);                                                 // simulate write time
-        c = std::stoi(std::string(cmdAr[1]));                           // get cylinder from user
-        s = std::stoi(std::string(cmdAr[2]));                           // sector from user
-        l = std::stoi(std::string(cmdAr[3]));                           // get data length from user
-        userData = std::string(cmdAr[4]);                               // get user data
-        blockIndex = ((c-1) * s) + s;                                   // get block number
-
-        if (c < cylinders && c >= 0 && s < sectors && s >= 0 && l <= BLOCK_SIZE && l > 0 && l == userData.size()) {
-            sendStr = "1";                                              // if legal, create legal (1) string
-            blocks[blockIndex].setData(userData);                       // load data into user selected block   
+        if (cmdLen != 3) {
+            sendStr = "Not a command";                                  // more or less than 4 arguments is illegal
         }
         else {
-            sendStr = "0";                                              // if illegal, create illegal (0) string
-        }
+            usleep(microS);                                             // simulate write time
+            c = std::stoi(std::string(cmdAr[1]));                       // get cylinder from user
+            s = std::stoi(std::string(cmdAr[2]));                       // sector from user
+            l = std::stoi(std::string(cmdAr[3]));                       // get data length from user
+            userData = std::string(cmdAr[4]);                           // get user data
+            blockIndex = ((c-1) * sectors) + s;                         // get block number
 
+            if (c < cylinders && c >= 0 && s < sectors && s >= 0 && l <= BLOCK_SIZE && l > 0 && l == userData.size()) {
+                sendStr = "1";                                          // if legal, create legal (1) string
+                blocks[blockIndex].setData(userData);                   // load data into user selected block   
+            }
+            else {
+                sendStr = "0";                                          // if illegal, create illegal (0) string
+            }
+        }
         strcpy(wbuf, sendStr.c_str());                                  // copy string to write buffer
         send(newSock, wbuf, strlen(wbuf), 0);                           // send the buffer to the client
         close(newSock);                                                 // close socket
@@ -133,6 +146,11 @@ void *connection(void *newS)
 
 int main(int argc, char* argv[])
 {
+    if (argc != 4) {
+        printf("Server requires 3 parameters: (1) no. of cylinders (2) no. of sectors (3) track-to-track time in microseconds");
+        exit(1);
+    }
+    
     microS = atoi(argv[1]);                     // get microseconds from user
     cylinders = atoi(argv[2]);                  // get cylinders from user
     sectors = atoi(argv[3]);                    // get sectors from user
@@ -150,7 +168,7 @@ int main(int argc, char* argv[])
 
     serverFd = socket(AF_INET, SOCK_STREAM, 0); // create socket 
     if (serverFd < 0) { 
-        std::cout << "Socket failed\n";         // if socket creation fails, issue error
+        std::cout << "Socket failed";           // if socket creation fails, issue error
         exit(1);                                // exit if error
     }
     
@@ -160,12 +178,12 @@ int main(int argc, char* argv[])
     addr.sin_port = htons(PORT);                // set port to listen to local PORT
         
     if (bind(serverFd, (struct sockaddr *)&addr, addrlen) < 0) {
-        std::cout << "Binding failed\n";        // if a bind is unsuccessfull issue error
+        std::cout << "Binding failed";          // if a bind is unsuccessfull issue error
         exit(1);                                // exit in the case of an error
     }   
     
     if (listen(serverFd, 5) < 0) {
-        std::cout << "Listening failed\n";      // if listening for connection fails (5 pending), issue error
+        std::cout << "Listening failed";        // if listening for connection fails (5 pending), issue error
         exit(1);                                // if listen fails, exit
     }
 

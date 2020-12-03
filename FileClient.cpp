@@ -14,6 +14,15 @@ int main()
     struct sockaddr_in caddr;                                       // socket address struct
     int caddrlen = sizeof(caddr);                                   // get address size
 
+    // Intructions to user
+    std::cout << "FILE SIMULATION\n\n";
+    std::cout << "Commands:\n";
+    std::cout << "[C]reate - Create a File 'C [filename]'\n";
+    std::cout << "[D]elete - Delete a File 'D [filename]'\n";
+    std::cout << "[L]ist - List all Files Names(0) or Names and Sizes(1) 'L [0 or 1]'\n";
+    std::cout << "[R]ead - Read File Data 'R [filename]'\n";
+    std::cout << "[W]rite - Write Data to File 'W [filename] [length of data] [data]\n";
+
     // while the word "exit" is not typed, continue the client
     while(strcmp(command, "exit") != 0) {
         

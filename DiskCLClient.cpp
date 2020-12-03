@@ -14,6 +14,13 @@ int main()
     struct sockaddr_in caddr;                                       // socket address struct
     int caddrlen = sizeof(caddr);                                   // get address size
 
+    // Intructions to user
+    std::cout << "DISK SIMULATION\n\n";
+    std::cout << "Commands:\n";
+    std::cout << "[I]nformation - Get Disk Geometry 'I'\n";
+    std::cout << "[R]ead - Read Data From Disk 'R [cylinder#] [sector#]'\n";
+    std::cout << "[W]rite - Write Data To Disk 'W [cylinder#] [sector#] [data]'\n";
+
     // while the word "exit" is not typed, continue the client
     while(strcmp(command, "exit") != 0) {
         
