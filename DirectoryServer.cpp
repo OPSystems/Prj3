@@ -13,27 +13,27 @@
 #define PORT 8080                                                       // define local port
 
 
-std::vector<std::vector<std::vector<char>>> disk;
-std::vector<std::vector<int>> freeBlockTable;
+std::vector<std::vector<std::vector<char>>> disk;                       // multidimensional array to represent disk. dimensions: m x n x 128
+std::vector<std::vector<int>> freeBlockTable;                           // free block table to store which blocks are free at any point in time
 
-struct block {
-    int cylinder;
-    int sector;
+struct block {                      // block struct to represent the position of a block in the disk
+    int cylinder;                   // cylinder of block
+    int sector;                     // sector of block
 };
 
 
-struct file {
-    std::string name;
-    int length;
-    std::vector<block> blockList;
+struct file {                       // file struct to represent a file
+    std::string name;               // name of file
+    int length;                     // length of data stored in file
+    std::vector<block> blockList;   // list of blocks being used by the file
 };
 
 
-struct directory {
-    std::string name;
-    std::vector<directory *> children;
-    std::vector<file> files;
-    struct directory *parent;
+struct directory {                          // directory struct to represent directory (works like an m-tree node)
+    std::string name;                       // name of directory             
+    std::vector<directory *> children;      // list of pointers to children directories
+    std::vector<file> files;                // list of files in directory
+    struct directory *parent;               // pointer to parent directory
 
     directory(std::string name) {
         this->name = name;
@@ -41,39 +41,39 @@ struct directory {
     }
 };
 
-void removeDirectory(directory *dir) {
-    for (int i = 0; i < dir->files.size(); i++) {
-        for (int j = 0; j < dir->files[i].blockList.size(); j++) {
-            for (int k = 0; k < 128; k++) {
+void removeDirectory(directory *dir) {                                                                                  // utility function to delete directory (allows deletion of all files in subdirectories)
+    for (int i = 0; i < dir->files.size(); i++) {                                                                       // for every file in the directory
+        for (int j = 0; j < dir->files[i].blockList.size(); j++) {                                                      // for every block in the file
+            for (int k = 0; k < 128; k++) {                                                                             // fill block with '\0' (remove all information from block)
                 disk[dir->files[i].blockList[j].cylinder][dir->files[i].blockList[j].sector][k] = '\0';
             }
-            freeBlockTable[dir->files[i].blockList[i].cylinder][dir->files[i].blockList[i].sector] = 0;
+            freeBlockTable[dir->files[i].blockList[i].cylinder][dir->files[i].blockList[i].sector] = 0;                 // set block to free in the free block table
         }
     }
 
-    for (int i = 0; i < dir->children.size(); i++) {
-        removeDirectory(dir->children[i]);
+    for (int i = 0; i < dir->children.size(); i++) {                                                                    // for every child directory
+        removeDirectory(dir->children[i]);                                                                              // call removeDirectory recursively
     }
 }
 
 
-std::string getPath(directory *dir) {
+std::string getPath(directory *dir) {                                  // utility function to get the full path of a directory
     
-    directory *currentDir = dir;
-    std::string path = dir->name;
+    directory *currentDir = dir;                                       // set current directory to the directory passed to getPath
+    std::string path = dir->name;                                      // set path to the name of the current directoy
     
-    while (currentDir->parent != NULL) {
-        path = currentDir->parent->name + "/" + path;
-        currentDir = currentDir->parent;
+    while (currentDir->parent != NULL) {                               // iterate until the current directory is the root directory
+        path = currentDir->parent->name + "/" + path;                  // add directory to the path
+        currentDir = currentDir->parent;                               // change current directory to the current directory's parent
     }
 
-    return path;
+    return path;                                                       // return the path string once the root directory is reached
 }
 
 
-struct directory *root = new directory("root");
+struct directory *root = new directory("root");                        // root variable represents the current directory
 
-int microSeconds;
+int microSeconds;                                                      // variable to store the track time in microseconds
 
 
 /* This is the thread function that receives a command from the client
@@ -110,40 +110,46 @@ void *connection(void *newS)
         token = strtok(NULL, " ");
     }
 
-    char * cmd = cmdAr[0];
+    char * cmd = cmdAr[0];           // set cmd to the first element of the command array (this will be used to determine what command the server receives)
     
-    long cylinderSize = disk.size();
-    long sectorSize = disk[0].size();
+    long cylinderSize = disk.size();    // get the number of cylinders
+    long sectorSize = disk[0].size();   // get the number of sectors
     
-    if (strcmp(cmd, "I") == 0) {
-        send(newSock, &cylinderSize ,sizeof(cylinderSize), 0);
-        send(newSock, &sectorSize, sizeof(sectorSize), 0);   
+    if (strcmp(cmd, "I") == 0) {                                     // if the command is "I"
+        send(newSock, &cylinderSize ,sizeof(cylinderSize), 0);       // send the number of cylinders
+        send(newSock, &sectorSize, sizeof(sectorSize), 0);           // send the number of sectors
         close(newSock); 
     }
-    else if (strcmp(cmd, "R") == 0) {
+    else if (strcmp(cmd, "R") == 0) {                                // if the command is "R"
         
-        bool readSector = true;
+        bool readSector = true;                                      // boolean to store whether the R command is for reading a sector or reading a file
 
-        if (cmdAr[2] == NULL) {
+        if (cmdAr[2] == NULL) {                                      // if a second argument is not present, the command is for reading a file
             readSector = false;
         }
 
-        if (readSector) {
-            usleep(microSeconds);
-            long reqCylinder = std::stoi(std::string(cmdAr[1]));
-            long reqSector = std::stoi(std::string(cmdAr[2]));
-            std::string outputData = "";
-            if (reqCylinder > 0 && reqSector > 0 && reqCylinder <= cylinderSize && reqSector <= sectorSize) {
-                outputData = outputData + std::to_string(1) + std::string(disk[reqCylinder - 1][reqSector - 1].begin(), disk[reqCylinder - 1][reqSector - 1].end());
+        if (readSector) {                                            // if the command is for reading a file
+            try {
+                usleep(microSeconds);                                                                                                                                       // simulate track time by waiting for a user inputted microseconds    
+                long reqCylinder = std::stoi(std::string(cmdAr[1]));                                                                                                        // store the requested cylinder from the command            
+                long reqSector = std::stoi(std::string(cmdAr[2]));                                                                                                          // store the requested sector from the command
+                std::string outputData = "";                                                                                                                                // initialize output string to be a blank string
+                if (reqCylinder > 0 && reqSector > 0 && reqCylinder <= cylinderSize && reqSector <= sectorSize) {                                                           // if the cylinder and sector are valid
+                    outputData = outputData + std::to_string(1) + std::string(disk[reqCylinder - 1][reqSector - 1].begin(), disk[reqCylinder - 1][reqSector - 1].end());    // append 1 and the contents of the sector to the string
+                }
+                else {                                                                                                                                                      // otherwise
+                    outputData = std::to_string(0);                                                                                                                         // append 0 to the string
+                }
+                send(newSock, outputData.c_str(), 1024, 0);                                                                                                                 // send the string to the client
+                close(newSock);
             }
-            else {
-                outputData = std::to_string(0);
+            catch (int e) {
+                send(newSock, "2", 1024, 0);                                                                                                                                // if there is an exception send the code 2 to the client
+                close(newSock);
             }
-            send(newSock, outputData.c_str(), 1024, 0);   
-            close(newSock);
         }
         else {
-            std::string fileName = std::string(cmdAr[1]);
+            std::string fileName = std::string(cmdAr[1]);                                      
             bool fileFound = false;
             int fileNo;
             for (int i = 0; i < root->files.size(); i++) {
@@ -154,7 +160,7 @@ void *connection(void *newS)
             }
             std::string outputString = "";
             if (fileFound) {
-                outputString = outputString + "0";
+                outputString = outputString + "0 " + std::to_string(root->files[fileNo].length) + " ";
                 for (int i = 0; i < root->files[fileNo].blockList.size(); i++) {
                     std::vector<char> sectorData = disk[root->files[fileNo].blockList[i].cylinder][root->files[fileNo].blockList[i].sector];
                     outputString = outputString + std::string(sectorData.begin(), sectorData.end());
