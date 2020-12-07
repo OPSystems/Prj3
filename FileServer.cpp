@@ -100,7 +100,7 @@ void *connection(void *newS)
                 }
                 send(newSock, outputData.c_str(), 1024, 0);   
                 close(newSock);
-            } catch (int e) {
+            } catch (std::invalid_argument& e) {
                 send(newSock, "2", 1024, 0);   
                 close(newSock);
             }
@@ -129,7 +129,7 @@ void *connection(void *newS)
                 }
                 send(newSock, outputString.c_str(), 1024, 0);   
                 close(newSock);
-            } catch (int e) {
+            } catch (std::invalid_argument& e) {
                 send(newSock, "2", 1024, 0);   
                 close(newSock);
             }
@@ -168,7 +168,7 @@ void *connection(void *newS)
                 
                 send(newSock, &code , sizeof(int), 0);   
                 close(newSock);
-            } catch (int e) {
+            } catch (std::invalid_argument& e) {
                 int code = 2;
                 send(newSock, &code , sizeof(int), 0);   
                 close(newSock);
@@ -351,12 +351,12 @@ void *connection(void *newS)
                     send(newSock, &code , sizeof(int), 0);   
                     close(newSock);
                 }
+            } catch (std::invalid_argument& e) {
+                int code = 2;
+                send(newSock, &code , sizeof(int), 0);   
+                close(newSock);
             }
-        } catch (int e) {
-            int code = 2;
-            send(newSock, &code , sizeof(int), 0);   
-            close(newSock);
-        }
+        } 
             
     }
     else if (strcmp(cmd, "F") == 0) {
@@ -497,7 +497,7 @@ void *connection(void *newS)
                 send(newSock, finalStr.c_str() , 1024, 0);   
                 close(newSock);
             }
-        } catch (int e) {
+        } catch (std::invalid_argument& e) {
             send(newSock, "2" , 1024, 0);   
             close(newSock);
         }

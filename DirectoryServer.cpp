@@ -143,7 +143,7 @@ void *connection(void *newS)
                 send(newSock, outputData.c_str(), 1024, 0);                                                                                                                 // send the string to the client
                 close(newSock);
             }
-            catch (int e) {
+            catch (std::invalid_argument& e) {
                 send(newSock, "2", 1024, 0);                                                                                                                                // if there is an exception send the code 2 to the client
                 close(newSock);
             }
@@ -172,7 +172,7 @@ void *connection(void *newS)
                 }
                 send(newSock, outputString.c_str(), 1024, 0);                                                                                           // send the output string to the client   
                 close(newSock);
-            } catch (int e) {                                                                                                          // if an exception is found
+            } catch (std::invalid_argument& e) {                                                                                                          // if an exception is found
                 send(newSock, "2", 1024, 0);                                                                                           // send an output code of 2 to the client   
                 close(newSock);
             }
@@ -212,7 +212,7 @@ void *connection(void *newS)
                 
                 send(newSock, &code , sizeof(int), 0);                                                                                                                                             // send the output code back to the client
                 close(newSock);
-            } catch(int e) {                                            // if there is an exception
+            } catch(std::invalid_argument& e) {                                            // if there is an exception
                 int code = 2;   
                 send(newSock, &code , sizeof(int), 0);                  // send an output code of 2 back to the client   
                 close(newSock);
@@ -395,7 +395,7 @@ void *connection(void *newS)
                     send(newSock, &code , sizeof(int), 0);                                          // if a file was not found send a code of 0 back to the client
                     close(newSock);
                 }
-            } catch (int e) {
+            } catch (std::invalid_argument& e) {
                 int code = 2;
                 send(newSock, &code , sizeof(int), 0);                                              // if an exception was encountered send a code of 2 back to the client
                 close(newSock);
@@ -559,7 +559,7 @@ void *connection(void *newS)
                 send(newSock, finalStr.c_str() , 1024, 0);                                          // send the final string back to the client  
                 close(newSock);
             }
-        } catch (int e) {
+        } catch (std::invalid_argument& e) {
 
         }
     }
