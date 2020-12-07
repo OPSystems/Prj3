@@ -12,6 +12,7 @@ Instructions and Summary:
 
 - First run Makefile (type 'make' into terminal)
 
+
 1. Basic client-server:
 This set of programs implements a client and a server. The client sends a string to the server which then reverses the string and sends it back to the client. 
 
@@ -26,6 +27,7 @@ Type in the string to be reversed into the client and the client will print out 
 ** The user needs to press 'cntrl c' to exit the server. **
 ** The user can exit the client by typing 'exit' **
 
+
 2. Directory listing server:
 This set of programs also implements a client and a server. The server runs the commands typed into the client (using exec calls) and returns the output back to the client. 
 
@@ -39,6 +41,7 @@ Type in a command such as 'ls' into the client and the client will print out the
 
 ** The user needs to press 'cntrl c' to exit the server. **
 ** The user can exit the client by typing 'exit' **
+
 
 3. Basic disk-storage system:
 This set of programs also implements a client and a server. The server simulates a disk storage system and the client allows the user to query commands to the disk server. 
@@ -58,6 +61,7 @@ The following commands are valid:
 
 ** The user needs to press 'cntrl c' to exit the server. **
 ** The user can exit the client by typing 'exit' **
+
 
 4. File system server:
 This set of programs extends the functionality of the previous set of programs and allows for the management of files on the server. 
@@ -86,6 +90,7 @@ information, or ’0’ if no such block exists.
 
 ** The user needs to press 'cntrl c' to exit the server. **
 ** The user can exit the client by typing 'exit' **
+
 
 5. Directory structure:
 This set of programs extends the functionality of the previous set of programs and allows for the management of directories. 
