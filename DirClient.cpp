@@ -4,7 +4,7 @@
 #include <stdio.h> 
 #include <sys/socket.h> 
 #include <string.h> 
-#define PORT 8181                                                   // define local port
+#define PORT 1234                                                   // define local port
 
 int main() 
 {   
@@ -43,42 +43,8 @@ int main()
         
         std::cout << "\nCommand Entered: " << command << "\n";      // print the command
         send(cSock, command, strlen(command), 0);                   // send command through socket
-        
-        if(command[0] == 'I') {
-            long cylinders;
-            long sectors;
-            read(cSock, &cylinders, sizeof(long));
-            read(cSock, &sectors, sizeof(long));
-            std::cout << "Cylinders: " << std::to_string(cylinders) << "\nSectors: " << std::to_string(sectors) << "\n";
-        }
-        else if (command[0] == 'W') {
-            int code;
-            read(cSock, &code, sizeof(int));
-            std::cout << "Returned Code: " << std::to_string(code) << "\n";
-        }
-        else if (command[0] == 'F') {
-            int code;
-            read(cSock, &code, sizeof(int));
-            if (code == 1) {
-                std::cout << "Successfully formatted file system." << "\n";
-            }
-        }
-        else if (command[0] == 'C') {
-            int code;
-            read(cSock, &code, sizeof(int));
-            std::cout << "Returned Code: " << std::to_string(code) << "\n";
-        }
-        else if (command[0] == 'D') {
-            int code;
-            read(cSock, &code, sizeof(int));
-            std::cout << "Returned Code: " << std::to_string(code) << "\n";
-        }
-        else {
-            read(cSock, rbuff, 1024);                                   // read the results
-            std::cout << rbuff << "\n";                                 // print the results
-        }
-
-        
+        read(cSock, rbuff, 1024);                                   // read the results
+        std::cout << rbuff << "\n";                                 // print the results
     }
     close(cSock);                                                   // close the socket
     return 0;                                                       // exit the program 

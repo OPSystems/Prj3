@@ -10,7 +10,7 @@
 #include <vector>
 #include <string>
 #include <cmath>
-#define PORT 8080                                                       // define local port
+#define PORT 4321                                                       // define local port
 
 
 std::vector<std::vector<std::vector<char>>> disk;
@@ -112,10 +112,10 @@ void *connection(void *newS)
             }
             std::string outputString = "";
             if (fileFound) {
-                outputString = outputString + "0";
+                outputString = outputString + "0 ";
                 for (int i = 0; i < FAT[fileNo].blockList.size(); i++) {
                     std::vector<char> sectorData = disk[FAT[fileNo].blockList[i].cylinder][FAT[fileNo].blockList[i].sector];
-                    outputString = outputString + std::string(sectorData.begin(), sectorData.end());
+                    outputString = outputString + std::to_string(FAT[fileNo].length) + " " + std::string(sectorData.begin(), sectorData.end());
                 } 
             }
             else {
@@ -486,7 +486,7 @@ int main(int argc, char* argv[])
 {
 
     if (argc != 4) {
-        printf("Server requires 3 parameters: (1) no. of cylinders (2) no. of sectors (3) track-to-track time in microseconds");
+        printf("Server requires 3 parameters: (1) no. of cylinders (2) no. of sectors (3) track-to-track time in microseconds\n");
         exit(EXIT_FAILURE);
     }
 

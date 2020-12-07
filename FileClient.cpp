@@ -4,7 +4,7 @@
 #include <stdio.h> 
 #include <sys/socket.h> 
 #include <string.h> 
-#define PORT 8080                                                   // define local port
+#define PORT 4321                                                   // define local port
 
 int main() 
 {   

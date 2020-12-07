@@ -10,7 +10,7 @@
 #include <vector>
 #include <string>
 #include <cmath>
-#define PORT 8080                                                       // define local port
+#define PORT 8181                                                       // define local port
 
 
 std::vector<std::vector<std::vector<char>>> disk;                       // multidimensional array to represent disk. dimensions: m x n x 128
@@ -642,7 +642,7 @@ int main(int argc, char* argv[])
 {
 
     if (argc != 4) {
-        printf("Server requires 3 parameters: (1) no. of cylinders (2) no. of sectors (3) track-to-track time in microseconds");
+        printf("Server requires 3 parameters: (1) no. of cylinders (2) no. of sectors (3) track-to-track time in microseconds\n");
         exit(EXIT_FAILURE);
     }
 
