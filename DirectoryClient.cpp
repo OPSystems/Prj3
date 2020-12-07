@@ -44,34 +44,34 @@ int main()
         std::cout << "\nCommand Entered: " << command << "\n";      // print the command
         send(cSock, command, strlen(command), 0);                   // send command through socket
         
-        if(command[0] == 'I') {
-            long cylinders;
-            long sectors;
-            read(cSock, &cylinders, sizeof(long));
-            read(cSock, &sectors, sizeof(long));
-            std::cout << "Cylinders: " << std::to_string(cylinders) << "\nSectors: " << std::to_string(sectors) << "\n";
+        if(command[0] == 'I') {                                     // if the command sent starts with "I"
+            long cylinders;                                         
+            long sectors; 
+            read(cSock, &cylinders, sizeof(long));                  // read the number of cylinders sent by the server
+            read(cSock, &sectors, sizeof(long));                    // read the number of sectors sent by the server
+            std::cout << "Cylinders: " << std::to_string(cylinders) << "\nSectors: " << std::to_string(sectors) << "\n";       // print the number of cylinders and sectors to the user
         }
-        else if (command[0] == 'W') {
+        else if (command[0] == 'W') {                               // if the command sent starts with "W"
             int code;
-            read(cSock, &code, sizeof(int));
-            std::cout << "Returned Code: " << std::to_string(code) << "\n";
+            read(cSock, &code, sizeof(int));                        // get the return code from the server
+            std::cout << "Returned Code: " << std::to_string(code) << "\n";    // print the return code to the user
         }
-        else if (command[0] == 'F') {
+        else if (command[0] == 'F') {                               // if the command sent starts with "F"
             int code;
-            read(cSock, &code, sizeof(int));
+            read(cSock, &code, sizeof(int));                        // get the code sent back by the server
             if (code == 1) {
-                std::cout << "Successfully formatted file system." << "\n";
+                std::cout << "Successfully formatted file system." << "\n";     // if the code is a 1 tell user that the disk was formatted successfully
             }
         }
-        else if (command[0] == 'C') {
+        else if (command[0] == 'C') {                               // if the command sent starts with "C"
             int code;
-            read(cSock, &code, sizeof(int));
-            std::cout << "Returned Code: " << std::to_string(code) << "\n";
+            read(cSock, &code, sizeof(int));                        // get the return code from the server
+            std::cout << "Returned Code: " << std::to_string(code) << "\n";     // print the return code to the user
         }
-        else if (command[0] == 'D') {
-            int code;
-            read(cSock, &code, sizeof(int));
-            std::cout << "Returned Code: " << std::to_string(code) << "\n";
+        else if (command[0] == 'D') {                               // if the command sent starts with "D"
+            int code;                                               
+            read(cSock, &code, sizeof(int));                        // get the return code from the server
+            std::cout << "Returned Code: " << std::to_string(code) << "\n";    // print the return code to the user
         }
         else {
             read(cSock, rbuff, 1024);                                   // read the results

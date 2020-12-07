@@ -87,42 +87,52 @@ void *connection(void *newS)
         }
 
         if (readSector) {
-            usleep(microSeconds);
-            long reqCylinder = std::stoi(std::string(cmdAr[1]));
-            long reqSector = std::stoi(std::string(cmdAr[2]));
-            std::string outputData = "";
-            if (reqCylinder > 0 && reqSector > 0 && reqCylinder <= cylinderSize && reqSector <= sectorSize) {
-                outputData = outputData + std::to_string(1) + std::string(disk[reqCylinder - 1][reqSector - 1].begin(), disk[reqCylinder - 1][reqSector - 1].end());
+            try {
+                usleep(microSeconds);
+                long reqCylinder = std::stoi(std::string(cmdAr[1]));
+                long reqSector = std::stoi(std::string(cmdAr[2]));
+                std::string outputData = "";
+                if (reqCylinder > 0 && reqSector > 0 && reqCylinder <= cylinderSize && reqSector <= sectorSize) {
+                    outputData = outputData + std::to_string(1) + std::string(disk[reqCylinder - 1][reqSector - 1].begin(), disk[reqCylinder - 1][reqSector - 1].end());
+                }
+                else {
+                    outputData = std::to_string(0);
+                }
+                send(newSock, outputData.c_str(), 1024, 0);   
+                close(newSock);
+            } catch (int e) {
+                send(newSock, "2", 1024, 0);   
+                close(newSock);
             }
-            else {
-                outputData = std::to_string(0);
-            }
-            send(newSock, outputData.c_str(), 1024, 0);   
-            close(newSock);
         }
         else {
-            std::string fileName = std::string(cmdAr[1]);
-            bool fileFound = false;
-            int fileNo;
-            for (int i = 0; i < FAT.size(); i++) {
-                if (strcmp(FAT[i].name.c_str(), fileName.c_str()) == 0) {
-                    fileFound = true;
-                    fileNo = i;
+            try {
+                std::string fileName = std::string(cmdAr[1]);
+                bool fileFound = false;
+                int fileNo;
+                for (int i = 0; i < FAT.size(); i++) {
+                    if (strcmp(FAT[i].name.c_str(), fileName.c_str()) == 0) {
+                        fileFound = true;
+                        fileNo = i;
+                    }
                 }
+                std::string outputString = "";
+                if (fileFound) {
+                    outputString = outputString + "0 ";
+                    for (int i = 0; i < FAT[fileNo].blockList.size(); i++) {
+                        std::vector<char> sectorData = disk[FAT[fileNo].blockList[i].cylinder][FAT[fileNo].blockList[i].sector];
+                        outputString = outputString + std::to_string(FAT[fileNo].length) + " " + std::string(sectorData.begin(), sectorData.end());
+                    } 
+                }
+                else {
+                    outputString = outputString + "1";
+                }
+                send(newSock, outputString.c_str(), 1024, 0);   
+                close(newSock);
+            } catch (int e) {
+                send(newSock, "2", 1024, 0);   
+                close(newSock);
             }
-            std::string outputString = "";
-            if (fileFound) {
-                outputString = outputString + "0 ";
-                for (int i = 0; i < FAT[fileNo].blockList.size(); i++) {
-                    std::vector<char> sectorData = disk[FAT[fileNo].blockList[i].cylinder][FAT[fileNo].blockList[i].sector];
-                    outputString = outputString + std::to_string(FAT[fileNo].length) + " " + std::string(sectorData.begin(), sectorData.end());
-                } 
-            }
-            else {
-                outputString = outputString + "1";
-            }
-            send(newSock, outputString.c_str(), 1024, 0);   
-            close(newSock);
         }
     }
     else if (strcmp(cmd, "W") == 0) {
@@ -134,162 +144,99 @@ void *connection(void *newS)
         }
         
         if (writeSector) {    
-            
-            usleep(microSeconds);
-            long reqCylinder = std::stoi(std::string(cmdAr[1]));
-            long reqSector = std::stoi(std::string(cmdAr[2]));
-            long dataLength  = std::stoi(std::string(cmdAr[3]));
-            std::string data = std::string(cmdAr[4]);
-            
-            int code;
+            try {
+                usleep(microSeconds);
+                long reqCylinder = std::stoi(std::string(cmdAr[1]));
+                long reqSector = std::stoi(std::string(cmdAr[2]));
+                long dataLength  = std::stoi(std::string(cmdAr[3]));
+                std::string data = std::string(cmdAr[4]);
+                
+                int code;
 
-            if (dataLength <= 128 && dataLength > 0 && reqCylinder > 0 && reqSector > 0 && reqCylinder <= cylinderSize && reqSector <= sectorSize &&  (dataLength == data.size())) {
-                for (int i = 0; i < 128; i++) {
-                    disk[reqCylinder - 1][reqSector - 1][i] = '\0';
-                }
-                for (int i = 0; i < dataLength; i++) {
-                    disk[reqCylinder - 1][reqSector - 1][i] = data[i];
-                }
-                code = 1;
-            }
-            else {
-                code = 0;
-            }
-            
-            send(newSock, &code , sizeof(int), 0);   
-            close(newSock);
-        }
-        else {
-            
-            std::string fileName = std::string(cmdAr[1]);
-            
-            bool fileFound = false;
-            int fileNo;
-            for (int i = 0; i < FAT.size(); i++) {
-                if (strcmp(FAT[i].name.c_str(), fileName.c_str()) == 0) {
-                    fileFound = true;
-                    fileNo = i;
-                }
-            }
-
-            if (fileFound) {
-
-                int dataLength = std::stoi(std::string(cmdAr[2]));
-
-                std::string data = std::string(cmdAr[3]);
-
-                int numBlocks = ceil(dataLength/128.0);
-
-                int existingBlocks = FAT[fileNo].blockList.size();
-
-                if (existingBlocks > numBlocks) {
-
-                    while (FAT[fileNo].blockList.size() > numBlocks) {
-                        block temp = FAT[fileNo].blockList.back();
-                        freeBlockTable[temp.cylinder][temp.sector] = 0;
-                        for (int i = 0; i < 128; i++) {
-                            disk[temp.cylinder][temp.sector][i] = '\0';
-                        }
-                        FAT[fileNo].blockList.pop_back();
+                if (dataLength <= 128 && dataLength > 0 && reqCylinder > 0 && reqSector > 0 && reqCylinder <= cylinderSize && reqSector <= sectorSize &&  (dataLength == data.size())) {
+                    for (int i = 0; i < 128; i++) {
+                        disk[reqCylinder - 1][reqSector - 1][i] = '\0';
                     }
-                    
-                    for (int i = 0; i < FAT[fileNo].blockList.size(); i++) {
-                        int cylinder = FAT[fileNo].blockList[i].cylinder;
-                        int sector = FAT[fileNo].blockList[i].sector;
-                        for (int j = 0; j < 128; j++) {
-                            disk[cylinder][sector][j] = '\0';
-                        }
+                    for (int i = 0; i < dataLength; i++) {
+                        disk[reqCylinder - 1][reqSector - 1][i] = data[i];
                     }
-
-                    int index = 0;
-                    
-                    for (int i = 0; i < FAT[fileNo].blockList.size(); i++) {
-                        int cylinder = FAT[fileNo].blockList[i].cylinder;
-                        int sector = FAT[fileNo].blockList[i].sector;
-                        for (int j = 0; j < 128; j++) {
-                            if (index > dataLength - 1) {
-                                break;
-                            }
-                            disk[cylinder][sector][j] = data[index];
-                            index++;
-                        }
-                    }
-
-                    FAT[fileNo].length = dataLength;
-                    
-                    int code = 0;
-                    send(newSock, &code , sizeof(int), 0);   
-                    close(newSock);
-                }
-                else if (existingBlocks == numBlocks) {
-                    for (int i = 0; i < FAT[fileNo].blockList.size(); i++) {
-                        int cylinder = FAT[fileNo].blockList[i].cylinder;
-                        int sector = FAT[fileNo].blockList[i].sector;
-                        for (int j = 0; j < 128; j++) {
-                            disk[cylinder][sector][j] = '\0';
-                        }
-                    }
-
-                    int index = 0;
-                    
-                    for (int i = 0; i < FAT[fileNo].blockList.size(); i++) {
-                        int cylinder = FAT[fileNo].blockList[i].cylinder;
-                        int sector = FAT[fileNo].blockList[i].sector;
-                        for (int j = 0; j < 128; j++) {
-                            if (index > dataLength - 1) {
-                                break;
-                            }
-                            disk[cylinder][sector][j] = data[index];
-                            index++;
-                        }
-                    }
-
-                    FAT[fileNo].length = dataLength;
-
-                    int code = 0;
-                    send(newSock, &code , sizeof(int), 0);   
-                    close(newSock);
+                    code = 1;
                 }
                 else {
+                    code = 0;
+                }
+                
+                send(newSock, &code , sizeof(int), 0);   
+                close(newSock);
+            } catch (int e) {
+                int code = 2;
+                send(newSock, &code , sizeof(int), 0);   
+                close(newSock);
+            }
+        }
+        else {
+            try {
+                std::string fileName = std::string(cmdAr[1]);
+                
+                bool fileFound = false;
+                int fileNo;
+                for (int i = 0; i < FAT.size(); i++) {
+                    if (strcmp(FAT[i].name.c_str(), fileName.c_str()) == 0) {
+                        fileFound = true;
+                        fileNo = i;
+                    }
+                }
 
-                    int newBlocks = 0;
-                    bool freeSpaceAvailable = true;
+                if (fileFound) {
 
-                    while (FAT[fileNo].blockList.size() < numBlocks) {
-                        int cylinder;
-                        int sector;
-                        bool freeBlockFound = false;
-                        for (int i = 0; i < freeBlockTable.size(); i++) {
-                            if (freeBlockFound) {
-                                break;
+                    int dataLength = std::stoi(std::string(cmdAr[2]));
+
+                    std::string data = std::string(cmdAr[3]);
+
+                    int numBlocks = ceil(dataLength/128.0);
+
+                    int existingBlocks = FAT[fileNo].blockList.size();
+
+                    if (existingBlocks > numBlocks) {
+
+                        while (FAT[fileNo].blockList.size() > numBlocks) {
+                            block temp = FAT[fileNo].blockList.back();
+                            freeBlockTable[temp.cylinder][temp.sector] = 0;
+                            for (int i = 0; i < 128; i++) {
+                                disk[temp.cylinder][temp.sector][i] = '\0';
                             }
-                            for (int j = 0; j < freeBlockTable[0].size(); j++) {
-                                if (freeBlockTable[i][j] == 0) {
-                                    freeBlockFound = true;
-                                    cylinder = i;
-                                    sector = j;
-                                    freeBlockTable[i][j] = 1;
+                            FAT[fileNo].blockList.pop_back();
+                        }
+                        
+                        for (int i = 0; i < FAT[fileNo].blockList.size(); i++) {
+                            int cylinder = FAT[fileNo].blockList[i].cylinder;
+                            int sector = FAT[fileNo].blockList[i].sector;
+                            for (int j = 0; j < 128; j++) {
+                                disk[cylinder][sector][j] = '\0';
+                            }
+                        }
+
+                        int index = 0;
+                        
+                        for (int i = 0; i < FAT[fileNo].blockList.size(); i++) {
+                            int cylinder = FAT[fileNo].blockList[i].cylinder;
+                            int sector = FAT[fileNo].blockList[i].sector;
+                            for (int j = 0; j < 128; j++) {
+                                if (index > dataLength - 1) {
                                     break;
                                 }
+                                disk[cylinder][sector][j] = data[index];
+                                index++;
                             }
                         }
-                        if (freeBlockFound) {
-                            block b = {cylinder, sector};
-                            FAT[fileNo].blockList.push_back(b);
-                            newBlocks++;
-                        }
-                        else {
-                            freeSpaceAvailable = false;
-                            for (int i = 0; i < newBlocks; i++) {
-                                FAT[fileNo].blockList.pop_back();
-                            }
-                            break;
-                        }
+
+                        FAT[fileNo].length = dataLength;
+                        
+                        int code = 0;
+                        send(newSock, &code , sizeof(int), 0);   
+                        close(newSock);
                     }
-
-
-                    if (freeSpaceAvailable) {
-
+                    else if (existingBlocks == numBlocks) {
                         for (int i = 0; i < FAT[fileNo].blockList.size(); i++) {
                             int cylinder = FAT[fileNo].blockList[i].cylinder;
                             int sector = FAT[fileNo].blockList[i].sector;
@@ -317,24 +264,100 @@ void *connection(void *newS)
                         int code = 0;
                         send(newSock, &code , sizeof(int), 0);   
                         close(newSock);
-
                     }
                     else {
 
-                        int code = 2;
-                        send(newSock, &code , sizeof(int), 0);   
-                        close(newSock);
+                        int newBlocks = 0;
+                        bool freeSpaceAvailable = true;
+
+                        while (FAT[fileNo].blockList.size() < numBlocks) {
+                            int cylinder;
+                            int sector;
+                            bool freeBlockFound = false;
+                            for (int i = 0; i < freeBlockTable.size(); i++) {
+                                if (freeBlockFound) {
+                                    break;
+                                }
+                                for (int j = 0; j < freeBlockTable[0].size(); j++) {
+                                    if (freeBlockTable[i][j] == 0) {
+                                        freeBlockFound = true;
+                                        cylinder = i;
+                                        sector = j;
+                                        freeBlockTable[i][j] = 1;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (freeBlockFound) {
+                                block b = {cylinder, sector};
+                                FAT[fileNo].blockList.push_back(b);
+                                newBlocks++;
+                            }
+                            else {
+                                freeSpaceAvailable = false;
+                                for (int i = 0; i < newBlocks; i++) {
+                                    block temp = FAT[fileNo].blockList.back();
+                                    freeBlockTable[temp.cylinder][temp.sector] = 0;    
+                                    FAT[fileNo].blockList.pop_back();
+                                }
+                                break;
+                            }
+                        }
+
+
+                        if (freeSpaceAvailable) {
+
+                            for (int i = 0; i < FAT[fileNo].blockList.size(); i++) {
+                                int cylinder = FAT[fileNo].blockList[i].cylinder;
+                                int sector = FAT[fileNo].blockList[i].sector;
+                                for (int j = 0; j < 128; j++) {
+                                    disk[cylinder][sector][j] = '\0';
+                                }
+                            }
+
+                            int index = 0;
+                            
+                            for (int i = 0; i < FAT[fileNo].blockList.size(); i++) {
+                                int cylinder = FAT[fileNo].blockList[i].cylinder;
+                                int sector = FAT[fileNo].blockList[i].sector;
+                                for (int j = 0; j < 128; j++) {
+                                    if (index > dataLength - 1) {
+                                        break;
+                                    }
+                                    disk[cylinder][sector][j] = data[index];
+                                    index++;
+                                }
+                            }
+
+                            FAT[fileNo].length = dataLength;
+
+                            int code = 0;
+                            send(newSock, &code , sizeof(int), 0);   
+                            close(newSock);
+
+                        }
+                        else {
+
+                            int code = 2;
+                            send(newSock, &code , sizeof(int), 0);   
+                            close(newSock);
+
+                        }
 
                     }
-
+                }
+                else {
+                    int code = 1;
+                    send(newSock, &code , sizeof(int), 0);   
+                    close(newSock);
                 }
             }
-            else {
-                int code = 1;
-                send(newSock, &code , sizeof(int), 0);   
-                close(newSock);
-            }
+        } catch (int e) {
+            int code = 2;
+            send(newSock, &code , sizeof(int), 0);   
+            close(newSock);
         }
+            
     }
     else if (strcmp(cmd, "F") == 0) {
         //clear all data from disk
@@ -456,21 +479,26 @@ void *connection(void *newS)
         }
     }
     else if (strcmp(cmd, "L") == 0) {
-        int bFlag = std::stoi(std::string(cmdAr[1]));
-        std::string finalStr = "";
+        try {
+            int bFlag = std::stoi(std::string(cmdAr[1]));
+            std::string finalStr = "";
 
-        if (bFlag == 0) {
-            for (int i = 0; i < FAT.size(); i++) {
-                finalStr = finalStr + FAT[i].name + "\n";
+            if (bFlag == 0) {
+                for (int i = 0; i < FAT.size(); i++) {
+                    finalStr = finalStr + FAT[i].name + "\n";
+                }
+                send(newSock, finalStr.c_str() , 1024, 0);   
+                close(newSock);
             }
-            send(newSock, finalStr.c_str() , 1024, 0);   
-            close(newSock);
-        }
-        else {
-            for (int i = 0; i < FAT.size(); i++) {
-                finalStr = finalStr + FAT[i].name + "\t" + std::to_string(FAT[i].length) + " bytes" + "\n";
+            else {
+                for (int i = 0; i < FAT.size(); i++) {
+                    finalStr = finalStr + FAT[i].name + "\t" + std::to_string(FAT[i].length) + " bytes" + "\n";
+                }
+                send(newSock, finalStr.c_str() , 1024, 0);   
+                close(newSock);
             }
-            send(newSock, finalStr.c_str() , 1024, 0);   
+        } catch (int e) {
+            send(newSock, "2" , 1024, 0);   
             close(newSock);
         }
     }

@@ -128,7 +128,7 @@ void *connection(void *newS)
             readSector = false;
         }
 
-        if (readSector) {                                            // if the command is for reading a file
+        if (readSector) {                                            // if the command is for reading a sector
             try {
                 usleep(microSeconds);                                                                                                                                       // simulate track time by waiting for a user inputted microseconds    
                 long reqCylinder = std::stoi(std::string(cmdAr[1]));                                                                                                        // store the requested cylinder from the command            
@@ -148,197 +148,111 @@ void *connection(void *newS)
                 close(newSock);
             }
         }
-        else {
-            std::string fileName = std::string(cmdAr[1]);                                      
-            bool fileFound = false;
-            int fileNo;
-            for (int i = 0; i < root->files.size(); i++) {
-                if (strcmp(root->files[i].name.c_str(), fileName.c_str()) == 0) {
-                    fileFound = true;
-                    fileNo = i;
+        else {                                                                                                                                      // if the command is for reading a file
+            try {
+                std::string fileName = std::string(cmdAr[1]);                                                                                           // get the filename
+                bool fileFound = false;                                                                                                                 // boolean that stores whether or not the file exists
+                int fileNo;                                                                                                                             // integer that stores the file's position in the directory's file vector
+                for (int i = 0; i < root->files.size(); i++) {                                                                                          // search through every file in the directory's file list to see if there is a file with a matching filename
+                    if (strcmp(root->files[i].name.c_str(), fileName.c_str()) == 0) {
+                        fileFound = true;                                                                                                               // if a match is found set fileFound to true
+                        fileNo = i;                                                                                                                     // if a match is found set fileNo to the matched index
+                    }
                 }
+                std::string outputString = "";                                                                                                          // create an empty output string
+                if (fileFound) {
+                    outputString = outputString + "0 " + std::to_string(root->files[fileNo].length) + " ";                                              // add 0 and the length of the file to the string
+                    for (int i = 0; i < root->files[fileNo].blockList.size(); i++) {                                                                    // iterate through every block in the blocklist of the file
+                        std::vector<char> sectorData = disk[root->files[fileNo].blockList[i].cylinder][root->files[fileNo].blockList[i].sector];        // get the data from each block
+                        outputString = outputString + std::string(sectorData.begin(), sectorData.end());                                                // add the data to the output string
+                    } 
+                }
+                else {                                                                                                                                  // if the file was not found
+                    outputString = outputString + "1";                                                                                                  // add 1 to the output string
+                }
+                send(newSock, outputString.c_str(), 1024, 0);                                                                                           // send the output string to the client   
+                close(newSock);
+            } catch (int e) {                                                                                                          // if an exception is found
+                send(newSock, "2", 1024, 0);                                                                                           // send an output code of 2 to the client   
+                close(newSock);
             }
-            std::string outputString = "";
-            if (fileFound) {
-                outputString = outputString + "0 " + std::to_string(root->files[fileNo].length) + " ";
-                for (int i = 0; i < root->files[fileNo].blockList.size(); i++) {
-                    std::vector<char> sectorData = disk[root->files[fileNo].blockList[i].cylinder][root->files[fileNo].blockList[i].sector];
-                    outputString = outputString + std::string(sectorData.begin(), sectorData.end());
-                } 
-            }
-            else {
-                outputString = outputString + "1";
-            }
-            send(newSock, outputString.c_str(), 1024, 0);   
-            close(newSock);
         }
     }
-    else if (strcmp(cmd, "W") == 0) {
+    else if (strcmp(cmd, "W") == 0) {                                            // if the command is "W"
         
-        bool writeSector = true;
+        bool writeSector = true;                                                 // initialize a variable to store whether we want to read from a file or a sector
 
         if (cmdAr[4] == NULL) {
-            writeSector = false;
+            writeSector = false;                                                 // if 4 or less arguments are given, we are writing to a file
         }
         
-        if (writeSector) {    
+        if (writeSector) {                                                       // if we are writing to a sector
             
-            usleep(microSeconds);
-            long reqCylinder = std::stoi(std::string(cmdAr[1]));
-            long reqSector = std::stoi(std::string(cmdAr[2]));
-            long dataLength  = std::stoi(std::string(cmdAr[3]));
-            std::string data = std::string(cmdAr[4]);
-            
-            int code;
+            try {
+                usleep(microSeconds);                                            // simulate track time by pausing the program for a few microseconds
+                long reqCylinder = std::stoi(std::string(cmdAr[1]));             // get the requested cylinder number
+                long reqSector = std::stoi(std::string(cmdAr[2]));               // get the requested sector number
+                long dataLength  = std::stoi(std::string(cmdAr[3]));             // get the input data length
+                std::string data = std::string(cmdAr[4]);                        // get the input data
+                
+                int code;                                                        // create a varibale to store the output code
 
-            if (dataLength <= 128 && dataLength > 0 && reqCylinder > 0 && reqSector > 0 && reqCylinder <= cylinderSize && reqSector <= sectorSize &&  (dataLength == data.size())) {
-                for (int i = 0; i < 128; i++) {
-                    disk[reqCylinder - 1][reqSector - 1][i] = '\0';
+                if (dataLength <= 128 && dataLength > 0 && reqCylinder > 0 && reqSector > 0 && reqCylinder <= cylinderSize && reqSector <= sectorSize &&  (dataLength == data.size())) {           // if the input arguments are valid
+                    for (int i = 0; i < 128; i++) {                                                                                                                                                // set all the characters in the sector to null
+                        disk[reqCylinder - 1][reqSector - 1][i] = '\0';
+                    }
+                    for (int i = 0; i < dataLength; i++) {                                                                                                                                         // copy the characters from the data string to the sector
+                        disk[reqCylinder - 1][reqSector - 1][i] = data[i];
+                    }
+                    code = 1;                                                                                                                                                                      // set the output code to 1
                 }
-                for (int i = 0; i < dataLength; i++) {
-                    disk[reqCylinder - 1][reqSector - 1][i] = data[i];
-                }
-                code = 1;
+                else {                                                                                                                                                                             // if the input arguments are invalid
+                    code = 0;                                                                                                                                                                      // set the output code to 0                                                                                   
+                }                                                                                               
+                
+                send(newSock, &code , sizeof(int), 0);                                                                                                                                             // send the output code back to the client
+                close(newSock);
+            } catch(int e) {                                            // if there is an exception
+                int code = 2;   
+                send(newSock, &code , sizeof(int), 0);                  // send an output code of 2 back to the client   
+                close(newSock);
             }
-            else {
-                code = 0;
-            }
-            
-            send(newSock, &code , sizeof(int), 0);   
-            close(newSock);
         }
-        else {
-            
-            std::string fileName = std::string(cmdAr[1]);
-            
-            bool fileFound = false;
-            int fileNo;
-            for (int i = 0; i < root->files.size(); i++) {
-                if (strcmp(root->files[i].name.c_str(), fileName.c_str()) == 0) {
-                    fileFound = true;
-                    fileNo = i;
+        else {                                                                                  // if we are writing to a file
+            try {
+                std::string fileName = std::string(cmdAr[1]);                                   // get the filename
+                
+                bool fileFound = false;                                                         
+                int fileNo;
+                for (int i = 0; i < root->files.size(); i++) {                                  // check if the file exists by iterating through every file and checking if it has the same name as the input filename
+                    if (strcmp(root->files[i].name.c_str(), fileName.c_str()) == 0) {
+                        fileFound = true;
+                        fileNo = i;
+                    }
                 }
-            }
 
-            if (fileFound) {
+                if (fileFound) {                                                                // if the file is found
 
-                int dataLength = std::stoi(std::string(cmdAr[2]));
+                    int dataLength = std::stoi(std::string(cmdAr[2]));                          // get input data length
 
-                std::string data = std::string(cmdAr[3]);
+                    std::string data = std::string(cmdAr[3]);                                   // get input data
 
-                int numBlocks = ceil(dataLength/128.0);
+                    int numBlocks = ceil(dataLength/128.0);                                     // calculate the number of blocks necessary in order to store the input data
 
-                int existingBlocks = root->files[fileNo].blockList.size();
+                    int existingBlocks = root->files[fileNo].blockList.size();                  // get the number of existing blocks being used by the file
 
-                if (existingBlocks > numBlocks) {
+                    if (existingBlocks > numBlocks) {                                           // if the file is using more blocks than the required number of blocks
 
-                    while (root->files[fileNo].blockList.size() > numBlocks) {
-                        block temp = root->files[fileNo].blockList.back();
-                        freeBlockTable[temp.cylinder][temp.sector] = 0;
-                        for (int i = 0; i < 128; i++) {
-                            disk[temp.cylinder][temp.sector][i] = '\0';
-                        }
-                        root->files[fileNo].blockList.pop_back();
-                    }
-                    
-                    for (int i = 0; i < root->files[fileNo].blockList.size(); i++) {
-                        int cylinder = root->files[fileNo].blockList[i].cylinder;
-                        int sector = root->files[fileNo].blockList[i].sector;
-                        for (int j = 0; j < 128; j++) {
-                            disk[cylinder][sector][j] = '\0';
-                        }
-                    }
-
-                    int index = 0;
-                    
-                    for (int i = 0; i < root->files[fileNo].blockList.size(); i++) {
-                        int cylinder = root->files[fileNo].blockList[i].cylinder;
-                        int sector = root->files[fileNo].blockList[i].sector;
-                        for (int j = 0; j < 128; j++) {
-                            if (index > dataLength - 1) {
-                                break;
+                        while (root->files[fileNo].blockList.size() > numBlocks) {              // keep removing blocks until the number of blocks being used by the file is equal to the number of blocks required by the file
+                            block temp = root->files[fileNo].blockList.back();
+                            freeBlockTable[temp.cylinder][temp.sector] = 0;                     // set the block to be free in the free block table 
+                            for (int i = 0; i < 128; i++) {
+                                disk[temp.cylinder][temp.sector][i] = '\0';                     // before removing the block from the file remove all its data
                             }
-                            disk[cylinder][sector][j] = data[index];
-                            index++;
+                            root->files[fileNo].blockList.pop_back();
                         }
-                    }
-
-                    root->files[fileNo].length = dataLength;
-                    
-                    int code = 0;
-                    send(newSock, &code , sizeof(int), 0);   
-                    close(newSock);
-                }
-                else if (existingBlocks == numBlocks) {
-                    for (int i = 0; i < root->files[fileNo].blockList.size(); i++) {
-                        int cylinder = root->files[fileNo].blockList[i].cylinder;
-                        int sector = root->files[fileNo].blockList[i].sector;
-                        for (int j = 0; j < 128; j++) {
-                            disk[cylinder][sector][j] = '\0';
-                        }
-                    }
-
-                    int index = 0;
-                    
-                    for (int i = 0; i < root->files[fileNo].blockList.size(); i++) {
-                        int cylinder = root->files[fileNo].blockList[i].cylinder;
-                        int sector = root->files[fileNo].blockList[i].sector;
-                        for (int j = 0; j < 128; j++) {
-                            if (index > dataLength - 1) {
-                                break;
-                            }
-                            disk[cylinder][sector][j] = data[index];
-                            index++;
-                        }
-                    }
-
-                    root->files[fileNo].length = dataLength;
-
-                    int code = 0;
-                    send(newSock, &code , sizeof(int), 0);   
-                    close(newSock);
-                }
-                else {
-
-                    int newBlocks = 0;
-                    bool freeSpaceAvailable = true;
-
-                    while (root->files[fileNo].blockList.size() < numBlocks) {
-                        int cylinder;
-                        int sector;
-                        bool freeBlockFound = false;
-                        for (int i = 0; i < freeBlockTable.size(); i++) {
-                            if (freeBlockFound) {
-                                break;
-                            }
-                            for (int j = 0; j < freeBlockTable[0].size(); j++) {
-                                if (freeBlockTable[i][j] == 0) {
-                                    freeBlockFound = true;
-                                    cylinder = i;
-                                    sector = j;
-                                    freeBlockTable[i][j] = 1;
-                                    break;
-                                }
-                            }
-                        }
-                        if (freeBlockFound) {
-                            block b = {cylinder, sector};
-                            root->files[fileNo].blockList.push_back(b);
-                            newBlocks++;
-                        }
-                        else {
-                            freeSpaceAvailable = false;
-                            for (int i = 0; i < newBlocks; i++) {
-                                root->files[fileNo].blockList.pop_back();
-                            }
-                            break;
-                        }
-                    }
-
-
-                    if (freeSpaceAvailable) {
-
-                        for (int i = 0; i < root->files[fileNo].blockList.size(); i++) {
+                        
+                        for (int i = 0; i < root->files[fileNo].blockList.size(); i++) {        // clear data from all remaining blocks being used by the file
                             int cylinder = root->files[fileNo].blockList[i].cylinder;
                             int sector = root->files[fileNo].blockList[i].sector;
                             for (int j = 0; j < 128; j++) {
@@ -346,12 +260,12 @@ void *connection(void *newS)
                             }
                         }
 
-                        int index = 0;
+                        int index = 0;                                                           // store the current character index of the input data
                         
-                        for (int i = 0; i < root->files[fileNo].blockList.size(); i++) {
+                        for (int i = 0; i < root->files[fileNo].blockList.size(); i++) {        // iterate through every block in the blocklist of the file
                             int cylinder = root->files[fileNo].blockList[i].cylinder;
                             int sector = root->files[fileNo].blockList[i].sector;
-                            for (int j = 0; j < 128; j++) {
+                            for (int j = 0; j < 128; j++) {                                     // assign 128 bytes from the input data to the block before moving on to the next block
                                 if (index > dataLength - 1) {
                                     break;
                                 }
@@ -360,32 +274,136 @@ void *connection(void *newS)
                             }
                         }
 
-                        root->files[fileNo].length = dataLength;
+                        root->files[fileNo].length = dataLength;                                // set the length of the file to the datalength
+                        
+                        int code = 0;                                                           
+                        send(newSock, &code , sizeof(int), 0);                                  // send a return code of 0 back to the client
+                        close(newSock);
+                    }
+                    else if (existingBlocks == numBlocks) {                                           // if the number of existing blocks and the number of requested blocks are the same
+                        for (int i = 0; i < root->files[fileNo].blockList.size(); i++) {              // clear data from all remaining blocks being used by the file
+                            int cylinder = root->files[fileNo].blockList[i].cylinder;
+                            int sector = root->files[fileNo].blockList[i].sector;
+                            for (int j = 0; j < 128; j++) {
+                                disk[cylinder][sector][j] = '\0';
+                            }
+                        }
+
+                        int index = 0;                                                              // store the current character index of the input data
+                        
+                        for (int i = 0; i < root->files[fileNo].blockList.size(); i++) {            // iterate through every block in the blocklist of the file
+                            int cylinder = root->files[fileNo].blockList[i].cylinder;
+                            int sector = root->files[fileNo].blockList[i].sector;
+                            for (int j = 0; j < 128; j++) {                                         // assign 128 bytes from the input data to the block before moving on to the next block
+                                if (index > dataLength - 1) {
+                                    break;
+                                }
+                                disk[cylinder][sector][j] = data[index];
+                                index++;
+                            }
+                        }
+
+                        root->files[fileNo].length = dataLength;                                    // set the length of the file to the datalength
 
                         int code = 0;
-                        send(newSock, &code , sizeof(int), 0);   
+                        send(newSock, &code , sizeof(int), 0);                                      // send a return code of 0 back to the server
                         close(newSock);
+                    }
+                    else {                                                                          // if the number of existing blocks is less than the requested blocks
+
+                        int newBlocks = 0;                                                          // create a variable to store the number of new blocks added (used when there is no more space left)
+                        bool freeSpaceAvailable = true;                                             // create a variable to store whether or not there is enough space available
+
+                        while (root->files[fileNo].blockList.size() < numBlocks) {                  // while the number of existing blocks is less than the number of requested blocks        
+                            int cylinder;
+                            int sector;
+                            bool freeBlockFound = false;                                            // create a variable to store whether or not a free block is found
+                            for (int i = 0; i < freeBlockTable.size(); i++) {                       // iterate through the cylinders in the free block table
+                                if (freeBlockFound) {
+                                    break;
+                                }
+                                for (int j = 0; j < freeBlockTable[0].size(); j++) {                // iterate through the sectors in the free block table
+                                    if (freeBlockTable[i][j] == 0) {                                // if a block with a 0 is found then we have found a free block
+                                        freeBlockFound = true;
+                                        cylinder = i;                                               // store the cylinder and sector numbers of the free block
+                                        sector = j;
+                                        freeBlockTable[i][j] = 1;                                   // set the block to not be free
+                                        break;
+                                    }
+                                }
+                            }
+                            if (freeBlockFound) {                                                   // if a free block is found
+                                block b = {cylinder, sector};
+                                root->files[fileNo].blockList.push_back(b);                         // add a new block with the cylinder and sector numbers of the free block to the file
+                                newBlocks++;
+                            }
+                            else {                                                                  // if a free block was not found
+                                freeSpaceAvailable = false;                                         
+                                for (int i = 0; i < newBlocks; i++) {                               // for every time a new block was added
+                                    block temp = root->files[fileNo].blockList.back();              // get the last block in the block list
+                                    freeBlockTable[temp.cylinder][temp.sector] = 0;                 // set the block to be free
+                                    root->files[fileNo].blockList.pop_back();                       // remove the block from the file
+                                }
+                                break;                                                              // exit the loop since there is no more space available
+                            }
+                        }
+
+
+                        if (freeSpaceAvailable) {                                                   // if there is free space available
+
+                            for (int i = 0; i < root->files[fileNo].blockList.size(); i++) {        // clear all data in the blocks allocated to the file
+                                int cylinder = root->files[fileNo].blockList[i].cylinder;
+                                int sector = root->files[fileNo].blockList[i].sector;
+                                for (int j = 0; j < 128; j++) {
+                                    disk[cylinder][sector][j] = '\0';
+                                }
+                            }
+
+                            int index = 0;                                                          // create a variable to store the current index of the input data
+                            
+                            for (int i = 0; i < root->files[fileNo].blockList.size(); i++) {        // iterate through every block in the list of allocated blocks
+                                int cylinder = root->files[fileNo].blockList[i].cylinder;
+                                int sector = root->files[fileNo].blockList[i].sector;
+                                for (int j = 0; j < 128; j++) {                                     // add chunks of 128 bytes from the input data to the blocks
+                                    if (index > dataLength - 1) {
+                                        break;
+                                    }
+                                    disk[cylinder][sector][j] = data[index];
+                                    index++;
+                                }
+                            }
+
+                            root->files[fileNo].length = dataLength;                                // set the file length to the input data length
+
+                            int code = 0;
+                            send(newSock, &code , sizeof(int), 0);                                  // send a code of 0 back to the client
+                            close(newSock);
+
+                        }
+                        else {
+
+                            int code = 2;
+                            send(newSock, &code , sizeof(int), 0);                                  // if there is no space available send a code of 2 back to the client
+                            close(newSock);
+
+                        }
 
                     }
-                    else {
-
-                        int code = 2;
-                        send(newSock, &code , sizeof(int), 0);   
-                        close(newSock);
-
-                    }
-
                 }
-            }
-            else {
-                int code = 1;
-                send(newSock, &code , sizeof(int), 0);   
+                else {
+                    int code = 1;
+                    send(newSock, &code , sizeof(int), 0);                                          // if a file was not found send a code of 0 back to the client
+                    close(newSock);
+                }
+            } catch (int e) {
+                int code = 2;
+                send(newSock, &code , sizeof(int), 0);                                              // if an exception was encountered send a code of 2 back to the client
                 close(newSock);
             }
         }
     }
-    else if (strcmp(cmd, "F") == 0) {
-        //clear all data from disk
+    else if (strcmp(cmd, "F") == 0) {                                       // if the command is "F"
+        //clear all data from disk                                          
         for (int i = 0; i < disk.size(); i++) {
             for (int j = 0; j < disk[0].size(); j++) {
                 for (int k = 0; k < 128; k++) {
@@ -394,19 +412,25 @@ void *connection(void *newS)
             }
         }
 
-        int size = root->files.size();
+        // set root to the actual root directory instead of the current directory
+        while(root->parent != NULL) {
+            root = root->parent;
+        }
 
-        for (int i = 0; i < size; i++) {
+
+        int size = root->files.size();                                      // store the number of files in the root directory
+
+        for (int i = 0; i < size; i++) {                                    // remove all files from the root directory
             root->files.pop_back();
         }
 
         int dirListSize = root->children.size();
 
-        for (int i = 0; i < dirListSize; i++) {
+        for (int i = 0; i < dirListSize; i++) {                             // remove all child directories from the root directory
             root->children.pop_back();
         }
 
-        for (int i = 0; i < freeBlockTable.size(); i++) {
+        for (int i = 0; i < freeBlockTable.size(); i++) {                   // set all blocks to be free in the free block table
             for (int j = 0; j < freeBlockTable[0].size(); j++) {
                 freeBlockTable[i][j] = 0;
             }
@@ -414,25 +438,25 @@ void *connection(void *newS)
 
         int code = 1;
 
-        send(newSock, &code , sizeof(int), 0);   
+        send(newSock, &code , sizeof(int), 0);                              // send a code of 0 back to the client
         close(newSock);
     }
-    else if (strcmp(cmd, "C") == 0) {
-        std::string fileName = std::string(cmdAr[1]);
+    else if (strcmp(cmd, "C") == 0) {                                           // if the command is "C"
+        std::string fileName = std::string(cmdAr[1]);                           // get the filename
 
-        bool fileAlreadyExists = false;
+        bool fileAlreadyExists = false;                                         
 
-        for (int i = 0; i < root->files.size(); i++) {
+        for (int i = 0; i < root->files.size(); i++) {                              // check if the file already exists
             if (strcmp(root->files[i].name.c_str(), fileName.c_str()) == 0) {
                 fileAlreadyExists = true;
             }
             break;
         }
-        if (!fileAlreadyExists) {
+        if (!fileAlreadyExists) {                                                   // if the file doesn't already exist
             int cylinder;
             int sector;
             bool freeBlockFound = false;
-            for (int i = 0; i < freeBlockTable.size(); i++) {
+            for (int i = 0; i < freeBlockTable.size(); i++) {                       // find a free block in the free block table
                 if (freeBlockFound) {
                     break;
                 }
@@ -446,42 +470,42 @@ void *connection(void *newS)
                     }
                 }
             }
-            if (freeBlockFound) {
+            if (freeBlockFound) {                                   // if a free block is found
                 std::vector<block> blocks;
-                block b = {cylinder, sector};
-                blocks.push_back(b);
+                block b = {cylinder, sector};                       // create a new block with the free block's cylinder and sector
+                blocks.push_back(b);                                // add it to a new block list
 
-                file newFile = {
+                file newFile = {                                    // create a new file with the created block list
                     fileName, 
                     0,
                     blocks
                 };
 
-                root->files.push_back(newFile);
+                root->files.push_back(newFile);                     // add the file to the list of files in the directory
 
                 int code = 0;
-                send(newSock, &code , sizeof(int), 0);   
+                send(newSock, &code , sizeof(int), 0);              // return a code of 0 to the client
                 close(newSock);
             }
-            else {
+            else {                                                  // if there is no space remaining
                 int code = 2;
-                send(newSock, &code , sizeof(int), 0);   
+                send(newSock, &code , sizeof(int), 0);              // send a code of 2 back to the client
                 close(newSock);
             }
         }
         else {
             int code = 1;
-            send(newSock, &code , sizeof(int), 0);   
+            send(newSock, &code , sizeof(int), 0);                  // if the file wasn't found send a code of 1 back to the client
             close(newSock);
         }
     }
-    else if (strcmp(cmd, "D") == 0) {
-        std::string fileName = std::string(cmdAr[1]);
+    else if (strcmp(cmd, "D") == 0) {                               // if the command is "D"
+        std::string fileName = std::string(cmdAr[1]);               // get the file name
 
         bool fileExists = false;
         int fileNo;
 
-        for (int i = 0; i < root->files.size(); i++) {
+        for (int i = 0; i < root->files.size(); i++) {                              // check if the file exists
             if (strcmp(root->files[i].name.c_str(), fileName.c_str()) == 0) {
                 fileExists = true;
                 fileNo = i;
@@ -489,140 +513,144 @@ void *connection(void *newS)
             }
         }
 
-        if (fileExists) {
+        if (fileExists) {                                                                       // if the file exists
             file File = root->files[fileNo];
-            for (int i = 0; i < File.blockList.size(); i++) {
+            for (int i = 0; i < File.blockList.size(); i++) {                                   // clear all of the blocks being used by the file
                 for (int j = 0; j < 128; j++) {
                     disk[File.blockList[i].cylinder][File.blockList[i].sector][j] = '\0';
                 }
-                freeBlockTable[File.blockList[i].cylinder][File.blockList[i].sector] = 0;
+                freeBlockTable[File.blockList[i].cylinder][File.blockList[i].sector] = 0;       // set all the blocks being used by the file to be free
             }
 
-            root->files.erase(root->files.begin() + fileNo);
+            root->files.erase(root->files.begin() + fileNo);                                    // remove the file from the file list
             
             int code = 0;
-            send(newSock, &code , sizeof(int), 0);   
+            send(newSock, &code , sizeof(int), 0);                                              // send a code of 0 back to the client
             close(newSock);
         }
         else {
             int code = 1;
-            send(newSock, &code , sizeof(int), 0);   
+            send(newSock, &code , sizeof(int), 0);                                              // if the file doesn't exist send a code of 1 back to the client
             close(newSock);
         }
     }
-    else if (strcmp(cmd, "L") == 0) {
-        int bFlag = std::stoi(std::string(cmdAr[1]));
-        std::string finalStr = "";
+    else if (strcmp(cmd, "L") == 0) {                                                           // if the command is "L"
+        try {    
+            int bFlag = std::stoi(std::string(cmdAr[1]));                                           // get the boolean flag
+            std::string finalStr = "";                                                              // create a string to store the files and directories in the current directory
 
-        if (bFlag == 0) {
-            for (int i = 0; i < root->children.size(); i++) {
-                finalStr = finalStr + root->children[i]->name + " (directory)\n";
+            if (bFlag == 0) {                                                                       // if the boolean flag is 0
+                for (int i = 0; i < root->children.size(); i++) {
+                    finalStr = finalStr + root->children[i]->name + " (directory)\n";               // add all the directory names to the string
+                }
+                for (int i = 0; i < root->files.size(); i++) {
+                    finalStr = finalStr + root->files[i].name + "\n";                               // add all the filenames to the string
+                }
+                send(newSock, finalStr.c_str() , 1024, 0);                                          // send the string with all the directory names and filenames to the client
+                close(newSock);
             }
-            for (int i = 0; i < root->files.size(); i++) {
-                finalStr = finalStr + root->files[i].name + "\n";
+            else {
+                for (int i = 0; i < root->children.size(); i++) {
+                    finalStr = finalStr + root->children[i]->name + " (directory)\n";               // add all directory names to the string
+                }
+                for (int i = 0; i < root->files.size(); i++) {
+                    finalStr = finalStr + root->files[i].name + "\t" + std::to_string(root->files[i].length) + " bytes" + "\n";     // add all file names and their lengths to the string
+                }
+                send(newSock, finalStr.c_str() , 1024, 0);                                          // send the final string back to the client  
+                close(newSock);
             }
-            send(newSock, finalStr.c_str() , 1024, 0);   
-            close(newSock);
-        }
-        else {
-            for (int i = 0; i < root->children.size(); i++) {
-                finalStr = finalStr + root->children[i]->name + " (directory)\n";
-            }
-            for (int i = 0; i < root->files.size(); i++) {
-                finalStr = finalStr + root->files[i].name + "\t" + std::to_string(root->files[i].length) + " bytes" + "\n";
-            }
-            send(newSock, finalStr.c_str() , 1024, 0);   
-            close(newSock);
+        } catch (int e) {
+
         }
     }
-    else if (strcmp(cmd, "pwd") == 0) {
-        std::string dirPath = getPath(root);
-        send(newSock, dirPath.c_str() , 1024, 0);   
+    else if (strcmp(cmd, "pwd") == 0) {                          // if the command is "pwd"
+        std::string dirPath = getPath(root);                     // get the path of the current directory
+        send(newSock, dirPath.c_str() , 1024, 0);                // send the path back to the client
         close(newSock);
     }
-    else if (strcmp(cmd, "mkdir") == 0) {
-        std::string fileName = std::string(cmdAr[1]);
+    else if (strcmp(cmd, "mkdir") == 0) {                        // if the command is "mkdir"
+        std::string fileName = std::string(cmdAr[1]);            // get the directory name
         
-        bool dirAlreadyExists = false;
+        bool dirAlreadyExists = false;                          
 
-        for (int i = 0; i < root->children.size(); i++) {
+        for (int i = 0; i < root->children.size(); i++) {                               // check if the directory already exists
             if(strcmp(root->children[i]->name.c_str(), fileName.c_str()) == 0) {
                 dirAlreadyExists = true;
             }
         }
 
-        if (!dirAlreadyExists) {
-            directory *newDir = new directory(fileName);
-            newDir->parent = root;
-            root->children.push_back(newDir);
+        if (!dirAlreadyExists) {                                                // if it doesn't already exist
+            directory *newDir = new directory(fileName);                        // create a new directory
+            newDir->parent = root;                                              // set the parent of the new directory to the current directory
+            root->children.push_back(newDir);                                   // add the new directory to the list of children of the current directory
 
-            send(newSock, "Directory created.", 1024, 0);   
+            send(newSock, "Directory created.", 1024, 0);                       // send a directory created message back to the client
             close(newSock);
         }
         else {
-            send(newSock, "Directory already exists." , 1024, 0);   
+            send(newSock, "Directory already exists." , 1024, 0);               // the directory already exists send a message back to the client
             close(newSock);
         }
     }
-    else if (strcmp(cmd, "cd") == 0) {
-        std::string fileName = std::string(cmdAr[1]);
+    else if (strcmp(cmd, "cd") == 0) {                                                          // if the command is "cd"
+        std::string fileName = std::string(cmdAr[1]);                                           // get the directory name
         
         bool dirExists = false;
         int dirNo;
-        if (strcmp(fileName.c_str(), "..") != 0) {
-            for (int i = 0; i < root->children.size(); i++) {
-                if(strcmp(root->children[i]->name.c_str(), fileName.c_str()) == 0) {
+        if (strcmp(fileName.c_str(), "..") != 0) {                                              // if the directory name argument is not ".." 
+            for (int i = 0; i < root->children.size(); i++) {                                   // check if the file with the directory name exists
+                if(strcmp(root->children[i]->name.c_str(), fileName.c_str()) == 0) {            
                     dirExists = true;
                     dirNo = i;
                     break;
                 }
             }
 
-            if (!dirExists) {
+            if (!dirExists) {                                                                    // if a child with the name does not exist, send a message back to the client
                 send(newSock, "Directory does not exist.", 1024, 0);   
                 close(newSock);
             }
-            else {
-                directory *newRoot = root->children[dirNo];
+            else {                                                                               // if a child with the name does exist
+                directory *newRoot = root->children[dirNo];                                      // change the current directory to the child
                 root = newRoot;
-                std::string outputString = "Directory changed to " + root->name + ".";
-                send(newSock, outputString.c_str() , 1024, 0);   
+                std::string outputString = "Directory changed to " + root->name + ".";           
+                send(newSock, outputString.c_str() , 1024, 0);                                   // send a message with the directory name back to the client
                 close(newSock);
             }
         }
-        else {
-            if (root->parent != NULL) {
-                root = root->parent;
-                std::string outputString = "Directory changed to " + root->name + ".";
-                send(newSock, outputString.c_str() , 1024, 0);   
+        else {                                                                              // if the filename argument is ".."
+            if (root->parent != NULL) {                                                     // if the parent of the current directory is not null (meaning it is not the root)
+                root = root->parent;                                                        // change the current directory to the current directory's parent
+                std::string outputString = "Directory changed to " + root->name + ".";      
+                send(newSock, outputString.c_str() , 1024, 0);                              // send a message witht the directory name back to the client
                 close(newSock);
             }
             else {
-                send(newSock, "Cannot go back from root directory.", 1024, 0);   
+                send(newSock, "Cannot go back from root directory.", 1024, 0);              // if the parent of the current directory is null send a message back to the client
                 close(newSock);
             }
         }
         
     }
-    else if (strcmp(cmd, "rmdir") == 0)  {
-        std::string fileName = std::string(cmdAr[1]);
+    else if (strcmp(cmd, "rmdir") == 0)  {                                          // if the command is "rmdir"
+        std::string fileName = std::string(cmdAr[1]);                               // get the directory name
         
         bool dirExists = false;
         int dirNo;
 
-        for (int i = 0; i < root->children.size(); i++) {
-            if(strcmp(root->children[i]->name.c_str(), fileName.c_str()) == 0) {
+        for (int i = 0; i < root->children.size(); i++) {                           // check if the directory exists
+            if(strcmp(root->children[i]->name.c_str(), fileName.c_str()) == 0) {    
                 dirExists = true;
                 dirNo = i;
                 break;
             }
         }
 
-        if (!dirExists) {
+        if (!dirExists) {                                                           // if the directory does not exist send a message back to the client
             send(newSock, "Directory does not exist.", 1024, 0);   
             close(newSock);
         }
-        else {
+        else {                                                                      // if the directory does exist call the remove directory function and remove the directory from the list of children
             removeDirectory(root->children[dirNo]);
             root->children.erase(root->children.begin() + dirNo);
             std::string outputString = "Directory removed.";
@@ -630,8 +658,8 @@ void *connection(void *newS)
             close(newSock);
         }
     }
-    else {
-        send(newSock, "Invalid command.", 1024, 0);
+    else {                                                                          // if the command isn't any of the above send a message to the client saying that it is invalid
+        send(newSock, "Invalid command.", 1024, 0);                                 
         close(newSock);
     }
 
@@ -646,9 +674,9 @@ int main(int argc, char* argv[])
         exit(EXIT_FAILURE);
     }
 
-    int cylinders = atoi(argv[1]);
-    int sectors = atoi(argv[2]);
-    microSeconds = atoi(argv[3]);
+    int cylinders = atoi(argv[1]);              // get the number of cylinders
+    int sectors = atoi(argv[2]);                // get the number of sectors
+    microSeconds = atoi(argv[3]);               // get the track time
 
     //populate disk with empty strings
     for (int i = 0; i < cylinders; i++) {
@@ -663,6 +691,7 @@ int main(int argc, char* argv[])
         disk.push_back(sectorArr);
     }
 
+    //populate the free block tables with 0's
     for (int i = 0; i < cylinders; i++) {
         std::vector<int> sectorArr;
         for (int j = 0; j < sectors; j++) {
